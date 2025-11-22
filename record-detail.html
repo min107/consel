@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+
+<html class="light" lang="ko">
+
+<head>
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+  <title>상담 기록 관리</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&amp;family=Noto+Sans+KR:wght@400;500;700&amp;display=swap"
+    rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+    rel="stylesheet" />
+  <style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+  </style>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#A8D8B9",
+            "secondary": "#FDF8E4",
+            "accent": "#FFD966",
+            "background-light": "#F5F5F5",
+            "background-dark": "#102219",
+            "text-light": "#111814",
+            "text-dark": "#E0E0E0",
+            "muted-light": "#618975",
+            "muted-dark": "#A0A0A0"
+          },
+          fontFamily: {
+            "display": ["Lexend", "Noto Sans KR", "sans-serif"]
+          },
+          borderRadius: { "DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px" },
+        },
+      },
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase.js"></script>
+</head>
+
+<body class="font-display bg-background-light dark:bg-background-dark">
+  <div class="relative flex h-auto min-h-screen w-full group/design-root">
+    <!-- SideNavBar -->
+    <aside class="flex-shrink-0 w-64 bg-white dark:bg-background-dark dark:border-r dark:border-gray-700">
+      <div class="flex flex-col h-full min-h-screen justify-between p-4">
+        <div class="flex flex-col gap-4">
+          <div class="flex items-center gap-3">
+            <div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10"
+              data-alt="Profile picture of Kim Min-jun, a counselor"
+              style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBGT9MD4nPZWIU2FUg3TPCFhY4jUu11wzZ97jk1C6RJqLCgg5zMIH4-dzhQY0eA3ZFPdX33Mdm_Flshv7b9fRXFTWzrEPWviEz-0WiNwlLwcPlAVeRwWfyfeMtp6puQ_YlMYGctAABIL7tZTRMziRYGkrlGplFx8sOUkmiDUBBOnSW6z4kFukRYbNORnhJR2nNvRgAYjgzOPKq_uaFV9GpTkAVhkrC_bv0FZcFlIkp6i6kHz-Tq2viEy7H_Tzn_v9oLEi_Oin-aTxg_");'>
+            </div>
+            <div class="flex flex-col">
+              <h1 class="text-text-light dark:text-text-dark text-base font-medium leading-normal">김민준 상담사</h1>
+              <p class="text-muted-light dark:text-muted-dark text-sm font-normal leading-normal">햇살초등학교</p>
+            </div>
+          </div>
+          <nav class="flex flex-col gap-2 mt-4">
+            <a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-primary/20 dark:hover:bg-primary/30"
+              href="dashboard.html">
+              <span class="material-symbols-outlined text-text-light dark:text-text-dark">dashboard</span>
+              <p class="text-text-light dark:text-text-dark text-sm font-medium leading-normal">대시보드</p>
+            </a>
+            <a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/20 dark:bg-primary/30"
+              href="record-list.html">
+              <span class="material-symbols-outlined text-text-light dark:text-text-dark"
+                style="font-variation-settings: 'FILL' 1">description</span>
+              <p class="text-text-light dark:text-text-dark text-sm font-medium leading-normal">상담 기록</p>
+            </a>
+            <a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-primary/20 dark:hover:bg-primary/30"
+              href="admin.html">
+              <span class="material-symbols-outlined text-text-light dark:text-text-dark">group</span>
+              <p class="text-text-light dark:text-text-dark text-sm font-medium leading-normal">계정 관리</p>
+            </a>
+          </nav>
+        </div>
+        <div class="flex flex-col gap-1">
+          <a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-primary/20 dark:hover:bg-primary/30" href="#">
+            <span class="material-symbols-outlined text-text-light dark:text-text-dark">settings</span>
+            <p class="text-text-light dark:text-text-dark text-sm font-medium leading-normal">설정</p>
+          </a>
+          <button id="logout-btn"
+            class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 w-full text-left">
+            <span class="material-symbols-outlined text-red-500">logout</span>
+            <p class="text-red-500 text-sm font-medium leading-normal">로그아웃</p>
+          </button>
+        </div>
+      </div>
+    </aside>
+    <!-- Main Content -->
+    <main class="flex-1 p-6 lg:p-8">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+        <!-- Left Column: Student Info & History -->
+        <div class="lg:col-span-1 flex flex-col gap-6">
+          <!-- Student Profile Header -->
+          <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
+            <div class="flex flex-col gap-4">
+              <div class="flex items-center gap-4">
+                <div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full w-24 h-24"
+                  data-alt="Profile picture of Park Seo-jun, a student"
+                  style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuA5huzJ3F2zuNswyuoqKy77thyQaB3QPLA7nBXNLiQxveDoj5BRexpVyIBSgiA89gjQE_XnxAtvlfOIqA_jOWAYlMAr0faEJ4-pw5gpNuOf0jD9xYTMxrXD8GYCzziLK60NGguqsqAr4vrDGZnsDwFxnWeDO6s8TGxgnRRcvRsbV3uB7_zI4Mf4auMo8qo_RrHOlxRixUwurk7J1UhqePI9SLBe3uokVAp5xkdtsX66bft-00HN_PtK9SENAJxosbEFL46CJKNJhHG5");'>
+                </div>
+                <div class="flex flex-col justify-center">
+                  <p class="text-text-light dark:text-text-dark text-2xl font-bold leading-tight">박서준</p>
+                  <p class="text-muted-light dark:text-muted-dark text-base font-normal leading-normal">3학년 2반</p>
+                  <p class="text-muted-light dark:text-muted-dark text-base font-normal leading-normal">연락처:
+                    010-1234-5678</p>
+                </div>
+              </div>
+              <div class="flex gap-2 flex-wrap">
+                <div
+                  class="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-red-100 dark:bg-red-900/30 px-3">
+                  <p class="text-red-800 dark:text-red-200 text-sm font-medium leading-normal">관심 필요</p>
+                </div>
+                <div
+                  class="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 px-3">
+                  <p class="text-blue-800 dark:text-blue-200 text-sm font-medium leading-normal">교우 관계</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Counseling History List -->
+          <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm flex-1 flex flex-col">
+            <div class="px-2 pb-2 pt-2 flex justify-between items-center">
+              <h3 class="text-text-light dark:text-text-dark text-lg font-bold">상담 기록 목록</h3>
+              <button id="add-history-btn"
+                class="flex items-center justify-center h-10 w-10 shrink-0 overflow-hidden rounded-full bg-primary text-white transition-all hover:bg-primary/90 dark:bg-primary/80 dark:hover:bg-primary/70">
+                <span class="material-symbols-outlined">add</span>
+              </button>
+            </div>
+            <div class="px-2 py-3">
+              <label class="flex flex-col min-w-40 h-11 w-full">
+                <div class="flex w-full flex-1 items-stretch rounded-lg h-full">
+                  <div
+                    class="text-muted-light dark:text-muted-dark flex bg-background-light dark:bg-gray-700 items-center justify-center pl-3 rounded-l-lg">
+                    <span class="material-symbols-outlined">search</span>
+                  </div>
+                  <input
+                    class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-r-lg text-text-light dark:text-text-dark focus:outline-0 focus:ring-2 focus:ring-primary/50 border-none bg-background-light dark:bg-gray-700 h-full placeholder:text-muted-light dark:placeholder:text-muted-dark px-2 text-base font-normal"
+                    placeholder="기록 검색..." value="" />
+                </div>
+              </label>
+            </div>
+            <div class="flex-1 overflow-y-auto pr-2 space-y-2 mt-2">
+              <div class="p-4 rounded-lg cursor-pointer bg-primary/20 dark:bg-primary/30">
+                <p class="text-sm text-muted-light dark:text-muted-dark">2023년 10월 26일</p>
+                <p class="font-semibold text-text-light dark:text-text-dark">친구 관계 문제</p>
+              </div>
+              <div class="p-4 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50">
+                <p class="text-sm text-muted-light dark:text-muted-dark">2023년 10월 12일</p>
+                <p class="font-medium text-text-light dark:text-text-dark">학업 스트레스 관련</p>
+              </div>
+              <div class="p-4 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50">
+                <p class="text-sm text-muted-light dark:text-muted-dark">2023년 9월 28일</p>
+                <p class="font-medium text-text-light dark:text-text-dark">진로 고민 상담</p>
+              </div>
+              <div class="p-4 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50">
+                <p class="text-sm text-muted-light dark:text-muted-dark">2023년 9월 5일</p>
+                <p class="font-medium text-text-light dark:text-text-dark">가정 환경 변화</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Right Column: Counseling Record Form/Details -->
+        <div class="lg:col-span-2 bg-white dark:bg-gray-800 p-6 lg:p-8 rounded-xl shadow-sm">
+          <div class="flex flex-col h-full">
+            <div class="flex justify-between items-center mb-6">
+              <h2 class="text-2xl font-bold text-text-light dark:text-text-dark">상담 기록 조회</h2>
+              <div class="flex items-center gap-2">
+                <button
+                  class="flex items-center justify-center h-10 w-10 shrink-0 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700 text-text-light dark:text-text-dark transition-all hover:bg-gray-300 dark:hover:bg-gray-600">
+                  <span class="material-symbols-outlined text-base">print</span>
+                </button>
+                <button id="edit-mode-btn"
+                  class="flex items-center justify-center h-10 px-6 shrink-0 overflow-hidden rounded-full bg-accent text-gray-900 font-semibold transition-all hover:bg-accent/90">수정하기</button>
+              </div>
+            </div>
+            <form id="record-form" class="space-y-6 flex-1 flex flex-col">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label class="block text-sm font-medium text-muted-light dark:text-muted-dark mb-2"
+                    for="student_name">학생 이름</label>
+                  <input
+                    class="form-input w-full rounded-lg border-gray-300 dark:border-gray-600 bg-background-light dark:bg-gray-700 text-text-light dark:text-text-dark focus:border-primary focus:ring-primary/50"
+                    id="student_name" type="text" placeholder="예: 김민준" required />
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-sm font-medium text-muted-light dark:text-muted-dark mb-2"
+                      for="student_grade">학년</label>
+                    <input
+                      class="form-input w-full rounded-lg border-gray-300 dark:border-gray-600 bg-background-light dark:bg-gray-700 text-text-light dark:text-text-dark focus:border-primary focus:ring-primary/50"
+                      id="student_grade" type="number" min="1" max="6" placeholder="3" required />
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-muted-light dark:text-muted-dark mb-2"
+                      for="student_class">반</label>
+                    <input
+                      class="form-input w-full rounded-lg border-gray-300 dark:border-gray-600 bg-background-light dark:bg-gray-700 text-text-light dark:text-text-dark focus:border-primary focus:ring-primary/50"
+                      id="student_class" type="number" min="1" placeholder="2" required />
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-muted-light dark:text-muted-dark mb-2"
+                    for="counseling_date">상담 날짜</label>
+                  <input
+                    class="form-input w-full rounded-lg border-gray-300 dark:border-gray-600 bg-background-light dark:bg-gray-700 text-text-light dark:text-text-dark focus:border-primary focus:ring-primary/50"
+                    id="counseling_date" type="date" required />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-muted-light dark:text-muted-dark mb-2"
+                    for="counseling_type">상담 유형</label>
+                  <select
+                    class="form-select w-full rounded-lg border-gray-300 dark:border-gray-600 bg-background-light dark:bg-gray-700 text-text-light dark:text-text-dark focus:border-primary focus:ring-primary/50"
+                    id="counseling_type">
+                    <option value="교우관계">교우관계</option>
+                    <option value="학업">학업</option>
+                    <option value="진로">진로</option>
+                    <option value="학교생활">학교생활</option>
+                    <option value="가정">가정</option>
+                    <option value="기타">기타</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-muted-light dark:text-muted-dark mb-2"
+                    for="counselor_name">담당 교사</label>
+                  <input
+                    class="form-input w-full rounded-lg border-gray-300 dark:border-gray-600 bg-background-light dark:bg-gray-700 text-text-light dark:text-text-dark focus:border-primary focus:ring-primary/50"
+                    id="counselor_name" type="text" placeholder="예: 박서연" />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-muted-light dark:text-muted-dark mb-2"
+                    for="status">상태</label>
+                  <select
+                    class="form-select w-full rounded-lg border-gray-300 dark:border-gray-600 bg-background-light dark:bg-gray-700 text-text-light dark:text-text-dark focus:border-primary focus:ring-primary/50"
+                    id="status">
+                    <option value="진행 중">진행 중</option>
+                    <option value="종결">종결</option>
+                    <option value="긴급">긴급</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-muted-light dark:text-muted-dark mb-2"
+                  for="counseling_summary">상담 요약 (주제)</label>
+                <input
+                  class="form-input w-full rounded-lg border-gray-300 dark:border-gray-600 bg-background-light dark:bg-gray-700 text-text-light dark:text-text-dark focus:border-primary focus:ring-primary/50"
+                  id="counseling_summary" type="text" placeholder="상담 주제를 간단히 입력하세요" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-muted-light dark:text-muted-dark mb-2"
+                  for="counseling_details">상세 내용</label>
+                <textarea
+                  class="form-textarea w-full rounded-lg border-gray-300 dark:border-gray-600 bg-background-light dark:bg-gray-700 text-text-light dark:text-text-dark focus:border-primary focus:ring-primary/50"
+                  id="counseling_details" placeholder="상세 상담 내용을 기록하세요..." rows="8"></textarea>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-muted-light dark:text-muted-dark mb-2"
+                  for="counseling_observation">관찰 및 평가</label>
+                <textarea
+                  class="form-textarea w-full rounded-lg border-gray-300 dark:border-gray-600 bg-background-light dark:bg-gray-700 text-text-light dark:text-text-dark focus:border-primary focus:ring-primary/50"
+                  id="counseling_observation" placeholder="상담사의 관찰 및 평가 내용을 기록하세요..." rows="5"></textarea>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-muted-light dark:text-muted-dark mb-2"
+                  for="next_session_date">다음 상담 예정일 (선택)</label>
+                <input
+                  class="form-input w-full md:w-1/2 rounded-lg border-gray-300 dark:border-gray-600 bg-background-light dark:bg-gray-700 text-text-light dark:text-text-dark focus:border-primary focus:ring-primary/50"
+                  id="next_session_date" type="date" />
+              </div>
+            </form>
+            <div class="mt-8 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
+              <p id="status-msg" class="text-sm text-muted-light dark:text-muted-dark italic"></p>
+              <button id="save-btn"
+                class="flex items-center justify-center h-12 px-8 shrink-0 overflow-hidden rounded-full bg-primary text-white font-semibold transition-all hover:bg-primary/90">저장</button>
+            </div>
+
+            <script>
+              document.addEventListener('DOMContentLoaded', async () => {
+                // Wait for Supabase to be initialized
+                const waitForSupabase = () => {
+                    return new Promise((resolve, reject) => {
+                        let attempts = 0;
+                        const maxAttempts = 50;
+                        const checkSupabase = () => {
+                            attempts++;
+                            if (supabase) {
+                                resolve(supabase);
+                            } else if (attempts >= maxAttempts) {
+                                reject(new Error('Supabase initialization timeout'));
+                            } else {
+                                setTimeout(checkSupabase, 100);
+                            }
+                        };
+                        checkSupabase();
+                    });
+                };
+
+                let client;
+                try {
+                    client = await waitForSupabase();
+                } catch (error) {
+                    console.error('Failed to initialize Supabase:', error);
+                    alert('초기화 중 오류가 발생했습니다. 페이지를 새로고침해주세요.');
+                    return;
+                }
+
+                // Auth Guard
+                const { data: { session } } = await client.auth.getSession();
+                if (!session) {
+                    window.location.href = 'index.html';
+                    return;
+                }
+
+                // Logout Handler
+                const logoutBtn = document.getElementById('logout-btn');
+                if (logoutBtn) {
+                    logoutBtn.addEventListener('click', async () => {
+                        await signOut();
+                        window.location.href = 'index.html';
+                    });
+                }
+
+                const urlParams = new URLSearchParams(window.location.search);
+                const recordId = urlParams.get('id');
+                const form = document.getElementById('record-form');
+                const saveBtn = document.getElementById('save-btn');
+                const statusMsg = document.getElementById('status-msg');
+
+                // Fields
+                const fields = [
+                  'student_name', 'student_grade', 'student_class',
+                  'counseling_date', 'counseling_type', 'counselor_name', 'status',
+                  'counseling_summary', 'counseling_details', 'counseling_observation', 'next_session_date'
+                ];
+
+                // Set default date to today
+                const counselingDateInput = document.getElementById('counseling_date');
+                if (counselingDateInput && !recordId) {
+                  counselingDateInput.valueAsDate = new Date();
+                }
+
+                // Edit mode button
+                const editModeBtn = document.getElementById('edit-mode-btn');
+                if (editModeBtn) {
+                  editModeBtn.addEventListener('click', () => {
+                    // Enable all form fields for editing
+                    fields.forEach(field => {
+                      const el = document.getElementById(field);
+                      if (el) {
+                        el.disabled = false;
+                        el.readOnly = false;
+                      }
+                    });
+                    saveBtn.style.display = 'block';
+                    statusMsg.textContent = '수정 모드입니다. 변경사항을 저장하려면 저장 버튼을 클릭하세요.';
+                  });
+                }
+
+                // Add history button (left sidebar)
+                const addHistoryBtn = document.getElementById('add-history-btn');
+                if (addHistoryBtn) {
+                  addHistoryBtn.addEventListener('click', () => {
+                    window.location.href = 'record-detail.html';
+                  });
+                }
+
+                if (recordId) {
+                  await fetchRecord(recordId);
+                  // Disable form fields in view mode
+                  fields.forEach(field => {
+                    const el = document.getElementById(field);
+                    if (el) {
+                      el.disabled = true;
+                      el.readOnly = true;
+                    }
+                  });
+                  saveBtn.style.display = 'none';
+                }
+
+                async function fetchRecord(id) {
+                  try {
+                    const { data, error } = await client
+                      .from('counseling_records')
+                      .select('*')
+                      .eq('id', id)
+                      .single();
+
+                    if (error) {
+                      throw error;
+                    }
+
+                    if (data) {
+                      fields.forEach(field => {
+                        const el = document.getElementById(field);
+                        if (el && data[field] !== null && data[field] !== undefined) {
+                          if (field === 'counseling_date' || field === 'next_session_date') {
+                            // Format date for date input
+                            const dateValue = new Date(data[field]);
+                            el.value = dateValue.toISOString().split('T')[0];
+                          } else {
+                            el.value = data[field];
+                          }
+                        }
+                      });
+                    }
+                  } catch (error) {
+                    console.error('Error fetching record:', error);
+                    alert('기록을 불러오는데 실패했습니다: ' + error.message);
+                  }
+                }
+
+                saveBtn.addEventListener('click', async (e) => {
+                  e.preventDefault();
+                  saveBtn.disabled = true;
+                  saveBtn.textContent = '저장 중...';
+                  statusMsg.textContent = '';
+
+                  const formData = {};
+                  fields.forEach(field => {
+                    const el = document.getElementById(field);
+                    if (el) formData[field] = el.value || null;
+                  });
+
+                  // Basic Validation
+                  if (!formData.student_name || !formData.counseling_date) {
+                    alert('학생 이름과 상담 날짜는 필수입니다.');
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = '저장';
+                    return;
+                  }
+
+                  // Convert date strings to proper format
+                  if (formData.counseling_date) {
+                    formData.counseling_date = new Date(formData.counseling_date).toISOString().split('T')[0];
+                  }
+                  if (formData.next_session_date) {
+                    formData.next_session_date = new Date(formData.next_session_date).toISOString().split('T')[0];
+                  }
+
+                  // Convert numeric fields
+                  if (formData.student_grade) {
+                    formData.student_grade = parseInt(formData.student_grade);
+                  }
+                  if (formData.student_class) {
+                    formData.student_class = parseInt(formData.student_class);
+                  }
+
+                  let error;
+                  try {
+                    if (recordId) {
+                      const { error: updateError } = await client
+                        .from('counseling_records')
+                        .update(formData)
+                        .eq('id', recordId);
+                      error = updateError;
+                    } else {
+                      const { error: insertError } = await client
+                        .from('counseling_records')
+                        .insert([formData]);
+                      error = insertError;
+                    }
+
+                    if (error) {
+                      throw error;
+                    }
+                  } catch (err) {
+                    error = err;
+                  }
+
+                  if (error) {
+                    console.error('Error saving record:', error);
+                    statusMsg.textContent = '저장 실패: ' + error.message;
+                    statusMsg.classList.add('text-red-500');
+                  } else {
+                    statusMsg.textContent = '저장되었습니다.';
+                    statusMsg.classList.remove('text-red-500');
+                    statusMsg.classList.add('text-green-500');
+                    setTimeout(() => {
+                      window.location.href = 'record-list.html';
+                    }, 1000);
+                  }
+
+                  saveBtn.disabled = false;
+                  saveBtn.textContent = '저장';
+                });
+              });
+            </script>
+          </div>
+        </div>
+      </div>
+  </div>
+  </main>
+  </div>
+</body>
+
+</html>

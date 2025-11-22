@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>초등학교 상담 관리</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700;900&amp;display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+        rel="stylesheet" />
+    <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#2bee8c",
+                        "background-light": "#f6f8f7",
+                        "background-dark": "#102219",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "Noto Sans KR", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Wait for Supabase to be initialized
+            const waitForSupabase = () => {
+                return new Promise((resolve, reject) => {
+                    let attempts = 0;
+                    const maxAttempts = 50;
+                    const checkSupabase = () => {
+                        attempts++;
+                        if (supabase) {
+                            resolve(supabase);
+                        } else if (attempts >= maxAttempts) {
+                            reject(new Error('Supabase initialization timeout'));
+                        } else {
+                            setTimeout(checkSupabase, 100);
+                        }
+                    };
+                    checkSupabase();
+                });
+            };
+
+            let client;
+            try {
+                client = await waitForSupabase();
+            } catch (error) {
+                console.error('Failed to initialize Supabase:', error);
+                alert('초기화 중 오류가 발생했습니다. 페이지를 새로고침해주세요.');
+                return;
+            }
+
+            // Auth Guard
+            const { data: { session } } = await client.auth.getSession();
+            if (!session) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // Logout Handler
+            const logoutBtn = document.getElementById('logout-btn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', async () => {
+                    await signOut();
+                    window.location.href = 'index.html';
+                });
+            }
+
+            // Fetch and display records
+            const recordsBody = document.getElementById('records-body');
+            const searchInput = document.getElementById('search-input');
+            const filterBtns = document.querySelectorAll('.filter-btn');
+            let currentFilter = 'all';
+            let currentPage = 1;
+            const itemsPerPage = 10;
+
+            // Filter button handlers
+            filterBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    filterBtns.forEach(b => {
+                        b.classList.remove('bg-primary/20', 'dark:bg-primary/30');
+                        b.classList.add('bg-gray-100', 'dark:bg-gray-800');
+                    });
+                    btn.classList.remove('bg-gray-100', 'dark:bg-gray-800');
+                    btn.classList.add('bg-primary/20', 'dark:bg-primary/30');
+                    currentFilter = btn.dataset.filter;
+                    currentPage = 1;
+                    fetchRecords();
+                });
+            });
+
+            // Search handler
+            let searchTimeout;
+            searchInput.addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    currentPage = 1;
+                    fetchRecords();
+                }, 500);
+            });
+
+            async function fetchRecords() {
+                try {
+                    let query = client
+                        .from('counseling_records')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+
+                    // Apply filter
+                    if (currentFilter !== 'all') {
+                        query = query.eq('status', currentFilter);
+                    }
+
+                    // Apply search
+                    const searchTerm = searchInput.value.trim();
+                    if (searchTerm) {
+                        query = query.or(`student_name.ilike.%${searchTerm}%,counseling_type.ilike.%${searchTerm}%,counseling_summary.ilike.%${searchTerm}%`);
+                    }
+
+                    const { data, error } = await query;
+
+                    if (error) {
+                        throw error;
+                    }
+
+                    if (!data || data.length === 0) {
+                        recordsBody.innerHTML = `<tr><td colspan="6" class="px-6 py-4 text-center">상담 기록이 없습니다.</td></tr>`;
+                        return;
+                    }
+
+                    // Pagination
+                    const startIndex = (currentPage - 1) * itemsPerPage;
+                    const endIndex = startIndex + itemsPerPage;
+                    const paginatedData = data.slice(startIndex, endIndex);
+
+                    recordsBody.innerHTML = paginatedData.map(record => `
+                        <tr class="bg-white dark:bg-zinc-900/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer border-b dark:border-zinc-700"
+                            onclick="window.location.href='record-detail.html?id=${record.id}'">
+                            <td class="px-6 py-4 font-medium text-zinc-900 dark:text-white whitespace-nowrap">
+                                ${escapeHtml(record.student_name || '-')}${record.student_grade && record.student_class ? ` (${record.student_grade}-${record.student_class})` : ''}
+                            </td>
+                            <td class="px-6 py-4">${formatDate(record.counseling_date) || '-'}</td>
+                            <td class="px-6 py-4">${escapeHtml(record.counseling_type || '-')}</td>
+                            <td class="px-6 py-4 max-w-sm truncate">${escapeHtml(record.counseling_summary || record.counseling_details || '-')}</td>
+                            <td class="px-6 py-4">${escapeHtml(record.counselor_name || '-')}</td>
+                            <td class="px-6 py-4 text-center">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(record.status)}">
+                                    ${escapeHtml(record.status || '진행 중')}
+                                </span>
+                            </td>
+                        </tr>
+                    `).join('');
+
+                    // Update pagination info
+                    updatePaginationInfo(data.length, startIndex, endIndex);
+
+                } catch (error) {
+                    console.error('Error fetching records:', error);
+                    recordsBody.innerHTML = `<tr><td colspan="6" class="px-6 py-4 text-center text-red-500">데이터를 불러오는데 실패했습니다: ${error.message}</td></tr>`;
+                }
+            }
+
+            function getStatusColor(status) {
+                switch (status) {
+                    case '진행 중': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
+                    case '종결': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
+                    case '긴급': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
+                    default: return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+                }
+            }
+
+            function escapeHtml(text) {
+                if (!text) return '';
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            function formatDate(dateString) {
+                if (!dateString) return '';
+                try {
+                    const date = new Date(dateString);
+                    return date.toLocaleDateString('ko-KR');
+                } catch (e) {
+                    return dateString;
+                }
+            }
+
+            function updatePaginationInfo(total, start, end) {
+                // Update pagination display if it exists
+                const paginationInfo = document.querySelector('nav[aria-label="Table navigation"] span');
+                if (paginationInfo) {
+                    paginationInfo.innerHTML = `총 <span class="font-semibold text-zinc-900 dark:text-white">${total}</span>개 중 <span class="font-semibold text-zinc-900 dark:text-white">${start + 1}-${Math.min(end, total)}</span>`;
+                }
+            }
+
+            // Initial load
+            fetchRecords();
+
+            // New record button
+            const addRecordBtn = document.getElementById('add-record-btn');
+            if (addRecordBtn) {
+                addRecordBtn.addEventListener('click', () => {
+                    window.location.href = 'record-detail.html';
+                });
+            }
+        });
+    </script>
+</head>
+
+<body class="font-display bg-background-light dark:bg-background-dark">
+    <div class="relative flex h-auto min-h-screen w-full flex-col group/design-root overflow-x-hidden">
+        <div class="layout-container flex h-full grow flex-col">
+            <!-- TopNavBar -->
+            <header
+                class="flex items-center justify-between whitespace-nowrap border-b border-solid border-zinc-200 dark:border-zinc-700 px-6 md:px-10 py-3 bg-white dark:bg-zinc-900/50">
+                <div class="flex items-center gap-4 text-zinc-900 dark:text-zinc-50">
+                    <div class="size-6 text-primary">
+                        <svg fill="none" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M6 6H42L36 24L42 42H6L12 24L6 6Z" fill="currentColor"></path>
+                        </svg>
+                    </div>
+                    <h2 class="text-lg font-bold leading-tight tracking-[-0.015em]">초등학교 상담 관리</h2>
+                </div>
+                <div class="hidden md:flex flex-1 justify-center gap-8">
+                    <a class="text-zinc-900 dark:text-zinc-50 text-sm font-medium leading-normal"
+                        href="dashboard.html">대시보드</a>
+                    <a class="text-primary text-sm font-bold leading-normal" href="record-list.html">상담 기록</a>
+                    <a class="text-zinc-900 dark:text-zinc-50 text-sm font-medium leading-normal hover:text-primary" href="admin.html">계정 관리</a>
+                </div>
+                <div class="flex flex-1 justify-end gap-2">
+                    <button
+                        class="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 gap-2 text-sm font-bold leading-normal tracking-[0.015em] min-w-0 px-2.5">
+                        <span class="material-symbols-outlined text-zinc-600 dark:text-zinc-300">settings</span>
+                    </button>
+                    <button
+                        class="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 gap-2 text-sm font-bold leading-normal tracking-[0.015em] min-w-0 px-2.5">
+                        <span class="material-symbols-outlined text-zinc-600 dark:text-zinc-300">notifications</span>
+                    </button>
+                    <button id="logout-btn"
+                        class="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 gap-2 text-sm font-bold leading-normal tracking-[0.015em] min-w-0">
+                        로그아웃
+                    </button>
+                    <div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10"
+                        data-alt="User profile picture, an abstract colorful pattern"
+                        style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuC3lBY_Vhk-KGqofcquKnPrw5nszDfiG63yCddEzaeIrTp8bMzwG4c2A5GpXgj8Me6LhhKDbE68kROmwWu39kgFlirhXwa36wd5UP-vBitxQV9QXLIi6Vn0-lDQpdtrrvZwxnRlmVkFSah4DI0DURIYH591dgfgBxt5c8AJ4lRvU7_xPYpElAIlnBuvgL-KMXAEyGLe7m5A1aTOhmnhWJaVPNqNN7ayRapHKjyZCYNRBv5wyLLBSha687EspThmrOjfs41ExR_bKA27");'>
+                    </div>
+                </div>
+            </header>
+            <main class="flex-1 px-4 sm:px-6 lg:px-8 py-8">
+                <div class="max-w-7xl mx-auto flex flex-col gap-8">
+                    <!-- PageHeading -->
+                    <div class="flex flex-wrap justify-between items-center gap-4">
+                        <div class="flex flex-col gap-2">
+                            <p
+                                class="text-zinc-900 dark:text-white text-3xl md:text-4xl font-black leading-tight tracking-[-0.033em]">
+                                상담 기록 전체 보기</p>
+                            <p class="text-zinc-500 dark:text-zinc-400 text-base font-normal leading-normal">모든 학생의 상담
+                                기록을 관리하고 조회합니다.</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button
+                                class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-zinc-200/50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 text-sm font-bold leading-normal tracking-[0.015em] gap-2">
+                                <span class="material-symbols-outlined text-base">download</span>
+                                <span class="truncate">내보내기</span>
+                            </button>
+                            <button id="add-record-btn"
+                                class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-primary text-zinc-900 text-sm font-bold leading-normal tracking-[0.015em] gap-2">
+                                <span class="material-symbols-outlined text-base">add</span>
+                                <span class="truncate">새 상담 기록 추가</span>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Stats -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div
+                            class="flex flex-col gap-2 rounded-xl p-6 border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/50">
+                            <p class="text-zinc-600 dark:text-zinc-300 text-base font-medium leading-normal">오늘의 상담 건수
+                            </p>
+                            <div class="flex items-end gap-2">
+                                <p
+                                    class="text-zinc-900 dark:text-white tracking-tight text-3xl font-bold leading-tight">
+                                    5</p>
+                                <p class="text-green-500 text-base font-medium leading-normal">+1</p>
+                            </div>
+                        </div>
+                        <div
+                            class="flex flex-col gap-2 rounded-xl p-6 border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/50">
+                            <p class="text-zinc-600 dark:text-zinc-300 text-base font-medium leading-normal">이번 주 상담 건수
+                            </p>
+                            <div class="flex items-end gap-2">
+                                <p
+                                    class="text-zinc-900 dark:text-white tracking-tight text-3xl font-bold leading-tight">
+                                    21</p>
+                                <p class="text-green-500 text-base font-medium leading-normal">+5</p>
+                            </div>
+                        </div>
+                        <div
+                            class="flex flex-col gap-2 rounded-xl p-6 border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/50">
+                            <p class="text-zinc-600 dark:text-zinc-300 text-base font-medium leading-normal">주요 관심 학생
+                            </p>
+                            <div class="flex items-end gap-2">
+                                <p
+                                    class="text-zinc-900 dark:text-white tracking-tight text-3xl font-bold leading-tight">
+                                    3</p>
+                                <p class="text-red-500 text-base font-medium leading-normal">-1</p>
+                            </div>
+                        </div>
+                        <div
+                            class="flex flex-col gap-2 rounded-xl p-6 border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/50">
+                            <p class="text-zinc-600 dark:text-zinc-300 text-base font-medium leading-normal">종결된 상담</p>
+                            <div class="flex items-end gap-2">
+                                <p
+                                    class="text-zinc-900 dark:text-white tracking-tight text-3xl font-bold leading-tight">
+                                    12</p>
+                                <p class="text-zinc-500 text-base font-medium leading-normal">이번 달</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Search and Filters Container -->
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
+                            <label class="flex flex-col min-w-40 h-12 w-full sm:w-72">
+                                <div class="flex w-full flex-1 items-stretch rounded-xl h-full">
+                                    <div
+                                        class="text-zinc-500 dark:text-zinc-400 flex border-none bg-white dark:bg-zinc-800 items-center justify-center pl-4 rounded-l-xl border-r-0">
+                                        <span class="material-symbols-outlined">search</span>
+                                    </div>
+                                    <input id="search-input"
+                                        class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-zinc-900 dark:text-zinc-100 focus:outline-0 focus:ring-2 focus:ring-primary/50 border-gray-300 dark:border-gray-700 bg-white dark:bg-zinc-800 h-full placeholder:text-zinc-500 dark:placeholder:text-zinc-400 px-4 rounded-l-none border-l-0 pl-2 text-base font-normal leading-normal"
+                                        placeholder="학생명 또는 상담 유형으로 검색" value="" />
+                                </div>
+                            </label>
+                            <!-- Filters -->
+                            <div class="flex gap-2 p-1 overflow-x-auto">
+                                <button data-filter="all"
+                                    class="filter-btn flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-primary/20 dark:bg-primary/30 px-4 text-sm font-medium">
+                                    전체
+                                </button>
+                                <button data-filter="진행 중"
+                                    class="filter-btn flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 px-4 text-sm font-medium">
+                                    진행 중
+                                </button>
+                                <button data-filter="종결"
+                                    class="filter-btn flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 px-4 text-sm font-medium">
+                                    종결
+                                </button>
+                                <button data-filter="긴급"
+                                    class="filter-btn flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 px-4 text-sm font-medium">
+                                    긴급
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Records Table -->
+                    <div class="overflow-x-auto bg-white dark:bg-zinc-900/50 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                        <table class="w-full text-sm text-left text-zinc-500 dark:text-zinc-400">
+                            <thead class="text-xs text-zinc-700 dark:text-zinc-300 uppercase bg-gray-50 dark:bg-zinc-800">
+                                <tr>
+                                    <th class="px-6 py-3" scope="col">학생명</th>
+                                    <th class="px-6 py-3" scope="col">상담일</th>
+                                    <th class="px-6 py-3" scope="col">상담 유형</th>
+                                    <th class="px-6 py-3" scope="col">상담 내용</th>
+                                    <th class="px-6 py-3" scope="col">담당자</th>
+                                    <th class="px-6 py-3 text-center" scope="col">상태</th>
+                                </tr>
+                            </thead>
+                            <tbody id="records-body">
+                                <tr>
+                                    <td colspan="6" class="px-6 py-4 text-center">데이터를 불러오는 중...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- Pagination -->
+                    <nav aria-label="Table navigation" class="flex items-center justify-between p-4">
+                        <span class="text-sm font-normal text-zinc-500 dark:text-zinc-400">총 <span
+                                class="font-semibold text-zinc-900 dark:text-white">100</span>개 중 <span
+                                class="font-semibold text-zinc-900 dark:text-white">1-5</span></span>
+                        <ul class="inline-flex items-center -space-x-px">
+                            <li>
+                                <a class="block px-3 py-2 ml-0 leading-tight text-zinc-500 bg-white border border-zinc-300 rounded-l-lg hover:bg-zinc-100 hover:text-zinc-700 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-white"
+                                    href="#">
+                                    <span class="sr-only">Previous</span>
+                                    <span class="material-symbols-outlined text-base">chevron_left</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a aria-current="page"
+                                    class="z-10 px-3 py-2 leading-tight text-zinc-900 border border-primary bg-primary/20 hover:bg-primary/30 dark:border-zinc-700 dark:bg-zinc-700 dark:text-white"
+                                    href="#">1</a>
+                            </li>
+                            <li>
+                                <a class="px-3 py-2 leading-tight text-zinc-500 bg-white border border-zinc-300 hover:bg-zinc-100 hover:text-zinc-700 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-white"
+                                    href="#">2</a>
+                            </li>
+                            <li>
+                                <a class="px-3 py-2 leading-tight text-zinc-500 bg-white border border-zinc-300 hover:bg-zinc-100 hover:text-zinc-700 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-white"
+                                    href="#">...</a>
+                            </li>
+                            <li>
+                                <a class="px-3 py-2 leading-tight text-zinc-500 bg-white border border-zinc-300 hover:bg-zinc-100 hover:text-zinc-700 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-white"
+                                    href="#">20</a>
+                            </li>
+                            <li>
+                                <a class="block px-3 py-2 leading-tight text-zinc-500 bg-white border border-zinc-300 rounded-r-lg hover:bg-zinc-100 hover:text-zinc-700 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-white"
+                                    href="#">
+                                    <span class="sr-only">Next</span>
+                                    <span class="material-symbols-outlined text-base">chevron_right</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+        </div>
+        </main>
+    </div>
+    </div>
+</body>
+
+</html>

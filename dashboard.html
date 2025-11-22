@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>상담 통계 대시보드</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;700;900&amp;family=Noto+Sans+KR:wght@400;500;700&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+        rel="stylesheet" />
+    <style>
+        .material-symbols-outlined {
+            font-variation-settings:
+                'FILL' 0,
+                'wght' 400,
+                'GRAD' 0,
+                'opsz' 24;
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#4A90E2",
+                        "secondary-yellow": "#F5A623",
+                        "secondary-green": "#7ED321",
+                        "background-light": "#F8F9FA",
+                        "background-dark": "#102219",
+                        "text-light": "#333333",
+                        "text-dark": "#E0E0E0",
+                        "subtext-light": "#666666",
+                        "subtext-dark": "#A0A0A0",
+                        "border-light": "#EAECEF",
+                        "border-dark": "#2D3748",
+                        "card-light": "#FFFFFF",
+                        "card-dark": "#1A202C",
+                        "positive": "#7ED321",
+                        "negative": "#E53E3E"
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "Noto Sans KR", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase.js"></script>
+</head>
+
+<body class="bg-background-light dark:bg-background-dark font-display text-text-light dark:text-text-dark">
+    <div class="relative flex h-auto min-h-screen w-full flex-col group/design-root overflow-x-hidden">
+        <div class="layout-container flex h-full grow flex-col">
+            <header
+                class="flex items-center justify-between whitespace-nowrap border-b border-solid border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark px-6 md:px-10 py-4 sticky top-0 z-10">
+                <div class="flex items-center gap-4 text-text-light dark:text-text-dark">
+                    <div class="size-6 text-primary">
+                        <svg aria-hidden="true" fill="currentColor" viewbox="0 0 20 20"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M10 2a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0V3a1 1 0 0 1 1-1ZM4 5a1 1 0 0 1 1-1h1.586a1 1 0 0 1 .707.293l1.414 1.414a1 1 0 0 1 0 1.414l-1.414 1.414A1 1 0 0 1 6.586 10H5a1 1 0 0 1-1-1V5Zm12 0a1 1 0 0 0-1-1h-1.586a1 1 0 0 0-.707.293l-1.414 1.414a1 1 0 0 0 0 1.414l1.414 1.414A1 1 0 0 0 13.414 10H15a1 1 0 0 0 1-1V5Z">
+                            </path>
+                            <path
+                                d="M8 10a1 1 0 0 1 1-1h2a1 1 0 1 1 0 2H9a1 1 0 0 1-1-1Zm2 11a1 1 0 0 1-1 1H9a1 1 0 1 1 0-2h2a1 1 0 0 1 1 1Z">
+                            </path>
+                            <path d="M10 13a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1Z"></path>
+                            <path clip-rule="evenodd"
+                                d="M5 2a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V5a3 3 0 0 0-3-3H5Zm0 2h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"
+                                fill-rule="evenodd"></path>
+                        </svg>
+                    </div>
+                    <h2 class="text-lg font-bold leading-tight tracking-[-0.015em]">상담 대시보드</h2>
+                </div>
+                <div class="hidden md:flex flex-1 justify-center gap-6 items-center">
+                    <a href="dashboard.html" class="text-text-light dark:text-text-dark text-sm font-bold leading-normal">대시보드</a>
+                    <a href="record-list.html" class="text-text-light dark:text-text-dark text-sm font-medium leading-normal hover:text-primary">상담 기록</a>
+                    <a href="admin.html" class="text-text-light dark:text-text-dark text-sm font-medium leading-normal hover:text-primary">계정 관리</a>
+                </div>
+                <div class="flex flex-1 justify-end gap-4 items-center">
+                    <button
+                        class="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 w-10 bg-background-light dark:bg-background-dark hover:bg-gray-200 dark:hover:bg-gray-700">
+                        <span
+                            class="material-symbols-outlined text-subtext-light dark:text-subtext-dark">notifications</span>
+                    </button>
+                    <button id="logout-btn"
+                        class="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-background-light dark:bg-background-dark hover:bg-gray-200 dark:hover:bg-gray-700 text-sm font-medium">
+                        로그아웃
+                    </button>
+                    <div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10"
+                        data-alt="User profile picture"
+                        style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAXfTyXl9PxooS2HeVGNIYaqMcEbPS3I0PnVQNIpz684Mxlp4TA5TUZ3RCR9Y7bkSEQsTQIeY7N4X-0-5t8-Bp7xmwMB5_-QzH46tTrBQjDmugW_lj2ye6s9iSTNZKiL1UsXdoIuxRsxWEqGuHvjdeIF4lpag-7JIgZ1BS2YQqZt44xvOz4vwAJjALrqFpqCJM-IAkOjXiQe2rea-2Skc-o_GluUUTefsx7lo3rhu0FFEu3GgZH4Ufim1ssQExwLxO4S4K2YrGpwNkt");'>
+                    </div>
+                </div>
+            </header>
+            <main class="flex-1 px-4 sm:px-6 md:px-10 py-8">
+                <div class="flex flex-wrap justify-between items-center gap-4 mb-6">
+                    <h1 class="text-3xl md:text-4xl font-black leading-tight tracking-[-0.033em]">상담 통계 현황</h1>
+                    <div class="flex gap-2 flex-wrap">
+                        <button
+                            class="flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark px-4 text-sm font-medium leading-normal hover:bg-gray-100 dark:hover:bg-gray-700">오늘</button>
+                        <button
+                            class="flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark px-4 text-sm font-medium leading-normal hover:bg-gray-100 dark:hover:bg-gray-700">이번
+                            주</button>
+                        <button
+                            class="flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-primary text-white px-4 text-sm font-bold leading-normal">이번
+                            달</button>
+                        <button
+                            class="flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark pl-4 pr-3 text-sm font-medium leading-normal hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <span>기간 설정</span>
+                            <span class="material-symbols-outlined text-lg">calendar_month</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                    <div
+                        class="flex min-w-[158px] flex-1 flex-col gap-2 rounded-xl p-6 border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark">
+                        <p class="text-base font-medium leading-normal text-subtext-light dark:text-subtext-dark">총 상담
+                            건수</p>
+                        <p id="total-count" class="tracking-light text-3xl font-bold leading-tight">-</p>
+                        <p class="text-positive text-sm font-medium leading-normal flex items-center gap-1"><span
+                                class="material-symbols-outlined text-base">arrow_upward</span>+5.2%</p>
+                    </div>
+                    <div
+                        class="flex min-w-[158px] flex-1 flex-col gap-2 rounded-xl p-6 border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark">
+                        <p class="text-base font-medium leading-normal text-subtext-light dark:text-subtext-dark">오늘 신규
+                            상담</p>
+                        <p id="today-count" class="tracking-light text-3xl font-bold leading-tight">-</p>
+                        <p class="text-positive text-sm font-medium leading-normal flex items-center gap-1"><span
+                                class="material-symbols-outlined text-base">arrow_upward</span>+10%</p>
+                    </div>
+                    <div
+                        class="flex min-w-[158px] flex-1 flex-col gap-2 rounded-xl p-6 border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark">
+                        <p class="text-base font-medium leading-normal text-subtext-light dark:text-subtext-dark">진행 중인
+                            상담</p>
+                        <p id="active-count" class="tracking-light text-3xl font-bold leading-tight">-</p>
+                        <p class="text-negative text-sm font-medium leading-normal flex items-center gap-1"><span
+                                class="material-symbols-outlined text-base">arrow_downward</span>-3.1%</p>
+                    </div>
+                    <div
+                        class="flex min-w-[158px] flex-1 flex-col gap-2 rounded-xl p-6 border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark">
+                        <p class="text-base font-medium leading-normal text-subtext-light dark:text-subtext-dark">평균 처리
+                            시간</p>
+                        <p class="tracking-light text-3xl font-bold leading-tight">2.5일</p>
+                        <p class="text-subtext-light dark:text-subtext-dark text-sm font-medium leading-normal">지난달 대비
+                        </p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                    <div
+                        class="lg:col-span-2 flex min-w-72 flex-1 flex-col gap-4 rounded-xl border border-border-light dark:border-border-dark p-6 bg-card-light dark:bg-card-dark">
+                        <p class="text-lg font-bold leading-normal">월별 상담 추이</p>
+                        <div class="flex min-h-[250px] flex-1 flex-col gap-8 py-4">
+                            <svg fill="none" height="100%" preserveaspectratio="none" viewbox="0 0 472 150" width="100%"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M0 109C18.1538 109 18.1538 21 36.3077 21C54.4615 21 54.4615 41 72.6154 41C90.7692 41 90.7692 93 108.923 93C127.077 93 127.077 33 145.231 33C163.385 33 163.385 101 181.538 101C199.692 101 199.692 61 217.846 61C236 61 236 45 254.154 45C272.308 45 272.308 121 290.462 121C308.615 121 308.615 149 326.769 149C344.923 149 344.923 1 363.077 1C381.231 1 381.231 81 399.385 81C417.538 81 417.538 129 435.692 129C453.846 129 453.846 25 472 25V149H0V109Z"
+                                    fill="url(#paint0_linear_chart)"></path>
+                                <path
+                                    d="M0 109C18.1538 109 18.1538 21 36.3077 21C54.4615 21 54.4615 41 72.6154 41C90.7692 41 90.7692 93 108.923 93C127.077 93 127.077 33 145.231 33C163.385 33 163.385 101 181.538 101C199.692 101 199.692 61 217.846 61C236 61 236 45 254.154 45C272.308 45 272.308 121 290.462 121C308.615 121 308.615 149 326.769 149C344.923 149 344.923 1 363.077 1C381.231 1 381.231 81 399.385 81C417.538 81 417.538 129 435.692 129C453.846 129 453.846 25 472 25"
+                                    stroke="#4A90E2" stroke-linecap="round" stroke-width="3"></path>
+                                <defs>
+                                    <lineargradient gradientunits="userSpaceOnUse" id="paint0_linear_chart" x1="236"
+                                        x2="236" y1="1" y2="149">
+                                        <stop stop-color="#4A90E2" stop-opacity="0.2"></stop>
+                                        <stop offset="1" stop-color="#4A90E2" stop-opacity="0"></stop>
+                                    </lineargradient>
+                                </defs>
+                            </svg>
+                            <div
+                                class="flex justify-around text-subtext-light dark:text-subtext-dark text-sm font-medium">
+                                <p>1월</p>
+                                <p>2월</p>
+                                <p>3월</p>
+                                <p>4월</p>
+                                <p>5월</p>
+                                <p>6월</p>
+                                <p>7월</p>
+                                <p>8월</p>
+                                <p>9월</p>
+                                <p>10월</p>
+                                <p>11월</p>
+                                <p>12월</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div
+                        class="flex min-w-72 flex-col gap-4 rounded-xl border border-border-light dark:border-border-dark p-6 bg-card-light dark:bg-card-dark">
+                        <p class="text-lg font-bold leading-normal">상담 유형별 비율</p>
+                        <div class="flex items-center justify-center flex-1 my-4">
+                            <div class="relative w-48 h-48">
+                                <svg class="w-full h-full" viewbox="0 0 36 36">
+                                    <circle cx="18" cy="18" fill="transparent" r="15.91549430918954" stroke="#F5A623"
+                                        stroke-dasharray="60 40" stroke-dashoffset="25" stroke-width="3.8"></circle>
+                                    <circle cx="18" cy="18" fill="transparent" r="15.91549430918954" stroke="#7ED321"
+                                        stroke-dasharray="25 75" stroke-dashoffset="-15" stroke-width="3.8"></circle>
+                                    <circle cx="18" cy="18" fill="transparent" r="15.91549430918954" stroke="#4A90E2"
+                                        stroke-dasharray="15 85" stroke-dashoffset="-40" stroke-width="3.8"></circle>
+                                </svg>
+                                <div class="absolute inset-0 flex items-center justify-center flex-col"><span
+                                        class="text-3xl font-bold">890</span><span
+                                        class="text-sm text-subtext-light dark:text-subtext-dark">총 건수</span></div>
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-2 text-sm">
+                            <div class="flex justify-between items-center">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-3 h-3 rounded-full bg-primary"></div><span>교우관계</span>
+                                </div><strong>60%</strong>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-3 h-3 rounded-full bg-secondary-green"></div><span>학업 스트레스</span>
+                                </div><strong>25%</strong>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-3 h-3 rounded-full bg-secondary-yellow"></div><span>기타</span>
+                                </div><strong>15%</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div
+                    class="rounded-xl border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark overflow-hidden">
+                    <div class="p-6">
+                        <h3 class="text-lg font-bold">최근 접수된 상담</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead
+                                class="bg-background-light dark:bg-background-dark text-subtext-light dark:text-subtext-dark uppercase tracking-wider text-xs font-bold">
+                                <tr>
+                                    <th class="px-6 py-3" scope="col">학생명</th>
+                                    <th class="px-6 py-3" scope="col">상담 유형</th>
+                                    <th class="px-6 py-3" scope="col">상태</th>
+                                    <th class="px-6 py-3" scope="col">담당자</th>
+                                    <th class="px-6 py-3" scope="col">접수일</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recent-records-body">
+                                <!-- Rows will be populated by JS -->
+                                <tr>
+                                    <td colspan="5" class="px-6 py-4 text-center">데이터를 불러오는 중...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Wait for Supabase to be initialized
+            const waitForSupabase = () => {
+                return new Promise((resolve, reject) => {
+                    let attempts = 0;
+                    const maxAttempts = 50;
+                    const checkSupabase = () => {
+                        attempts++;
+                        if (supabase) {
+                            resolve(supabase);
+                        } else if (attempts >= maxAttempts) {
+                            reject(new Error('Supabase initialization timeout'));
+                        } else {
+                            setTimeout(checkSupabase, 100);
+                        }
+                    };
+                    checkSupabase();
+                });
+            };
+
+            let client;
+            try {
+                client = await waitForSupabase();
+            } catch (error) {
+                console.error('Failed to initialize Supabase:', error);
+                alert('초기화 중 오류가 발생했습니다. 페이지를 새로고침해주세요.');
+                return;
+            }
+
+            // Auth Guard
+            const { data: { session } } = await client.auth.getSession();
+            if (!session) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // Logout Handler
+            const logoutBtn = document.getElementById('logout-btn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', async () => {
+                    await signOut();
+                    window.location.href = 'index.html';
+                });
+            }
+
+            const totalCountEl = document.getElementById('total-count');
+            const todayCountEl = document.getElementById('today-count');
+            const activeCountEl = document.getElementById('active-count');
+            const recentRecordsBody = document.getElementById('recent-records-body');
+
+            async function fetchStats() {
+                try {
+                    // Total Count
+                    const { count: totalCount, error: totalError } = await client
+                        .from('counseling_records')
+                        .select('*', { count: 'exact', head: true });
+
+                    if (totalError) throw totalError;
+                    totalCountEl.textContent = totalCount || 0;
+
+                    // Today Count
+                    const today = new Date().toISOString().split('T')[0];
+                    const { count: todayCount, error: todayError } = await client
+                        .from('counseling_records')
+                        .select('*', { count: 'exact', head: true })
+                        .eq('counseling_date', today);
+
+                    if (todayError) throw todayError;
+                    todayCountEl.textContent = todayCount || 0;
+
+                    // Active Count (Not '종결')
+                    const { count: activeCount, error: activeError } = await client
+                        .from('counseling_records')
+                        .select('*', { count: 'exact', head: true })
+                        .neq('status', '종결');
+
+                    if (activeError) throw activeError;
+                    activeCountEl.textContent = activeCount || 0;
+                } catch (error) {
+                    console.error('Error fetching stats:', error);
+                    totalCountEl.textContent = '-';
+                    todayCountEl.textContent = '-';
+                    activeCountEl.textContent = '-';
+                }
+            }
+
+            async function fetchRecentRecords() {
+                try {
+                    const { data, error } = await client
+                        .from('counseling_records')
+                        .select('*')
+                        .order('created_at', { ascending: false })
+                        .limit(5);
+
+                    if (error) {
+                        throw error;
+                    }
+
+                    if (!data || data.length === 0) {
+                        recentRecordsBody.innerHTML = `<tr><td colspan="5" class="px-6 py-4 text-center">최근 상담 기록이 없습니다.</td></tr>`;
+                        return;
+                    }
+
+                    recentRecordsBody.innerHTML = data.map(record => `
+                        <tr class="border-t border-border-light dark:border-border-dark cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onclick="window.location.href='record-detail.html?id=${record.id}'">
+                            <td class="px-6 py-4 font-medium whitespace-nowrap">${escapeHtml(record.student_name || '-')}</td>
+                            <td class="px-6 py-4">${escapeHtml(record.counseling_type || '-')}</td>
+                            <td class="px-6 py-4"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(record.status)}">${escapeHtml(record.status || '진행 중')}</span></td>
+                            <td class="px-6 py-4">${escapeHtml(record.counselor_name || '-')}</td>
+                            <td class="px-6 py-4">${formatDate(record.counseling_date) || '-'}</td>
+                        </tr>
+                    `).join('');
+                } catch (error) {
+                    console.error('Error fetching recent records:', error);
+                    recentRecordsBody.innerHTML = `<tr><td colspan="5" class="px-6 py-4 text-center text-red-500">데이터를 불러오는데 실패했습니다: ${error.message}</td></tr>`;
+                }
+            }
+
+            function getStatusColor(status) {
+                switch (status) {
+                    case '진행 중': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
+                    case '종결': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
+                    case '긴급': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
+                    default: return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+                }
+            }
+
+            function escapeHtml(text) {
+                if (!text) return '';
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            function formatDate(dateString) {
+                if (!dateString) return '';
+                try {
+                    const date = new Date(dateString);
+                    return date.toLocaleDateString('ko-KR');
+                } catch (e) {
+                    return dateString;
+                }
+            }
+
+            fetchStats();
+            fetchRecentRecords();
+        });
+    </script>
+</body>
+
+</html>

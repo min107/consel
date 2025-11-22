@@ -501,12 +501,52 @@
                     formData.student_class = null;
                   }
 
-                  // Remove undefined values to avoid issues
+                  // Log what we're trying to send before cleaning
+                  console.log('Form data before cleaning:', JSON.stringify(formData, null, 2));
+                  
+                  // Define EXACTLY which fields are allowed (must match database schema)
+                  const allowedFields = [
+                    'student_name', 
+                    'student_grade', 
+                    'student_class',
+                    'counseling_date', 
+                    'counseling_type', 
+                    'counselor_name', 
+                    'status',
+                    'counseling_summary', 
+                    'counseling_details', 
+                    'counseling_observation', 
+                    'next_session_date'
+                  ];
+                  
+                  // Remove undefined values, empty strings, and any fields not in allowed list
+                  const cleanedFormData = {};
                   Object.keys(formData).forEach(key => {
-                    if (formData[key] === undefined) {
-                      delete formData[key];
+                    // Only allow fields that are in the allowed list
+                    if (!allowedFields.includes(key)) {
+                      console.warn(`Removing disallowed field: ${key}`);
+                      return;
+                    }
+                    
+                    const value = formData[key];
+                    // Only include fields that have actual values or are explicitly null
+                    if (value !== undefined && value !== '') {
+                      cleanedFormData[key] = value;
+                    } else if (value === null) {
+                      // Explicitly null values are OK for optional fields
+                      cleanedFormData[key] = null;
                     }
                   });
+                  
+                  // Explicitly ensure 'content' is NEVER included
+                  delete cleanedFormData.content;
+                  delete cleanedFormData.notes;
+                  
+                  console.log('Form data after cleaning:', JSON.stringify(cleanedFormData, null, 2));
+                  console.log('Fields being sent:', Object.keys(cleanedFormData));
+                  
+                  // Use cleaned data
+                  formData = cleanedFormData;
 
                   // Verify session before saving
                   const { data: { session: currentSession }, error: sessionCheckError } = await client.auth.getSession();
@@ -540,18 +580,42 @@
                     }
 
                     if (error) {
+                      console.error('Full error object:', error);
+                      console.error('Error code:', error.code);
+                      console.error('Error message:', error.message);
+                      console.error('Error details:', error.details);
+                      console.error('Error hint:', error.hint);
+                      
                       // Handle RLS policy errors
                       if (error.message && error.message.includes('row-level security')) {
                         throw new Error('데이터베이스 보안 정책 오류입니다. Supabase SQL Editor에서 fix_rls_policies.sql을 실행해주세요.');
                       }
-                      // Handle schema errors
-                      if (error.message && error.message.includes('column')) {
-                        const missingColumn = error.message.match(/column ['"]([^'"]+)['"]/)?.[1];
+                      // Log the actual raw error
+                      console.error('Raw Supabase error:', JSON.stringify(error, null, 2));
+                      
+                      // Handle schema errors - check multiple patterns
+                      if (error.message && (error.message.includes('column') || error.message.includes('컬럼') || error.code === '42703')) {
+                        // Try to extract column name from various error message formats
+                        const missingColumnMatch = error.message.match(/column ['"]([^'"]+)['"]|컬럼 ['"]([^'"]+)['"]|'([^']+)'|"([^"]+)"/);
+                        const missingColumn = missingColumnMatch ? (missingColumnMatch[1] || missingColumnMatch[2] || missingColumnMatch[3] || missingColumnMatch[4]) : null;
+                        
                         if (missingColumn) {
-                          throw new Error(`데이터베이스에 '${missingColumn}' 컬럼이 없습니다. Supabase 대시보드에서 fix_all_schema.sql을 실행해주세요.`);
+                          const actualErrorMsg = `데이터베이스에 '${missingColumn}' 컬럼이 없습니다.\n\n` +
+                            `전송한 필드: ${Object.keys(formData).join(', ')}\n\n` +
+                            `Supabase Table Editor에서 counseling_records 테이블의 실제 컬럼명을 확인하고,\n` +
+                            `check_table_schema.sql을 실행하여 스키마를 확인해주세요.`;
+                          throw new Error(actualErrorMsg);
                         }
                       }
-                      throw error;
+                      
+                      // Generic error with more details
+                      const errorMessage = error.message || error.toString();
+                      const detailedError = `저장 실패: ${errorMessage}\n\n` +
+                        `에러 코드: ${error.code || 'N/A'}\n` +
+                        `에러 상세: ${error.details || 'N/A'}\n` +
+                        `전송한 필드: ${Object.keys(formData).join(', ')}\n\n` +
+                        `전송한 데이터:\n${JSON.stringify(formData, null, 2)}`;
+                      throw new Error(detailedError);
                     }
                   } catch (err) {
                     error = err;
@@ -561,11 +625,26 @@
                   }
 
                   if (error) {
-                    const errorMessage = error.message || '알 수 없는 오류가 발생했습니다.';
+                    let errorMessage = error.message || '알 수 없는 오류가 발생했습니다.';
+                    
+                    // Display error with more context
+                    if (error.message) {
+                      errorMessage = error.message;
+                      if (error.details) {
+                        errorMessage += '\n상세: ' + error.details;
+                      }
+                      if (error.hint) {
+                        errorMessage += '\n힌트: ' + error.hint;
+                      }
+                    }
+                    
                     statusMsg.textContent = '저장 실패: ' + errorMessage;
                     statusMsg.classList.remove('text-green-500');
                     statusMsg.classList.add('text-red-500');
                     statusMsg.style.display = 'block';
+                    
+                    // Also show in alert for better visibility
+                    alert('저장 실패:\n' + errorMessage + '\n\n브라우저 콘솔(F12)에서 자세한 로그를 확인하세요.');
                   } else {
                     statusMsg.textContent = '저장되었습니다.';
                     statusMsg.classList.remove('text-red-500');

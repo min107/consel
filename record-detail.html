@@ -312,12 +312,25 @@
                     return;
                 }
 
-                // Auth Guard
-                const { data: { session } } = await client.auth.getSession();
-                if (!session) {
-                    window.location.href = 'index.html';
-                    return;
+                // Auth Guard - Verify session is active
+                let { data: { session }, error: sessionError } = await client.auth.getSession();
+                if (!session || sessionError) {
+                  alert('로그인이 필요합니다. 로그인 페이지로 이동합니다.');
+                  window.location.href = 'index.html';
+                  return;
                 }
+
+                // Verify user is authenticated before any operations
+                const { data: { user }, error: userError } = await client.auth.getUser();
+                if (!user || userError) {
+                  console.error('User authentication error:', userError);
+                  alert('인증 오류가 발생했습니다. 다시 로그인해주세요.');
+                  await signOut();
+                  window.location.href = 'index.html';
+                  return;
+                }
+
+                console.log('Authenticated user:', user.email);
 
                 // Logout Handler
                 const logoutBtn = document.getElementById('logout-btn');
@@ -426,7 +439,21 @@
                   const formData = {};
                   fields.forEach(field => {
                     const el = document.getElementById(field);
-                    if (el) formData[field] = el.value || null;
+                    if (el) {
+                      const value = el.value?.trim();
+                      // Only include non-empty values, or null for optional fields
+                      if (value) {
+                        formData[field] = value;
+                      } else if (field === 'student_grade' || field === 'student_class') {
+                        // Numeric fields can be null
+                        formData[field] = null;
+                      } else if (field === 'next_session_date' || field === 'counseling_observation' || 
+                                 field === 'counseling_summary' || field === 'counseling_details' ||
+                                 field === 'counselor_name' || field === 'counseling_type') {
+                        // Optional text fields can be null
+                        formData[field] = null;
+                      }
+                    }
                   });
 
                   // Basic Validation
@@ -439,46 +466,106 @@
 
                   // Convert date strings to proper format
                   if (formData.counseling_date) {
-                    formData.counseling_date = new Date(formData.counseling_date).toISOString().split('T')[0];
+                    try {
+                      const date = new Date(formData.counseling_date);
+                      formData.counseling_date = date.toISOString().split('T')[0];
+                    } catch (e) {
+                      alert('상담 날짜 형식이 올바르지 않습니다.');
+                      saveBtn.disabled = false;
+                      saveBtn.textContent = '저장';
+                      return;
+                    }
                   }
                   if (formData.next_session_date) {
-                    formData.next_session_date = new Date(formData.next_session_date).toISOString().split('T')[0];
+                    try {
+                      const date = new Date(formData.next_session_date);
+                      formData.next_session_date = date.toISOString().split('T')[0];
+                    } catch (e) {
+                      // Invalid date, set to null
+                      formData.next_session_date = null;
+                    }
                   }
 
-                  // Convert numeric fields
-                  if (formData.student_grade) {
-                    formData.student_grade = parseInt(formData.student_grade);
+                  // Convert numeric fields - handle empty strings
+                  if (formData.student_grade !== undefined && formData.student_grade !== null && formData.student_grade !== '') {
+                    const grade = parseInt(formData.student_grade);
+                    formData.student_grade = isNaN(grade) ? null : grade;
+                  } else {
+                    formData.student_grade = null;
                   }
-                  if (formData.student_class) {
-                    formData.student_class = parseInt(formData.student_class);
+                  
+                  if (formData.student_class !== undefined && formData.student_class !== null && formData.student_class !== '') {
+                    const cls = parseInt(formData.student_class);
+                    formData.student_class = isNaN(cls) ? null : cls;
+                  } else {
+                    formData.student_class = null;
+                  }
+
+                  // Remove undefined values to avoid issues
+                  Object.keys(formData).forEach(key => {
+                    if (formData[key] === undefined) {
+                      delete formData[key];
+                    }
+                  });
+
+                  // Verify session before saving
+                  const { data: { session: currentSession }, error: sessionCheckError } = await client.auth.getSession();
+                  if (!currentSession || sessionCheckError) {
+                    alert('세션이 만료되었습니다. 다시 로그인해주세요.');
+                    await signOut();
+                    window.location.href = 'index.html';
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = '저장';
+                    return;
                   }
 
                   let error;
+                  let result;
                   try {
                     if (recordId) {
-                      const { error: updateError } = await client
+                      const { data, error: updateError } = await client
                         .from('counseling_records')
                         .update(formData)
-                        .eq('id', recordId);
+                        .eq('id', recordId)
+                        .select();
                       error = updateError;
+                      result = data;
                     } else {
-                      const { error: insertError } = await client
+                      const { data, error: insertError } = await client
                         .from('counseling_records')
-                        .insert([formData]);
+                        .insert([formData])
+                        .select();
                       error = insertError;
+                      result = data;
                     }
 
                     if (error) {
+                      // Handle RLS policy errors
+                      if (error.message && error.message.includes('row-level security')) {
+                        throw new Error('데이터베이스 보안 정책 오류입니다. Supabase SQL Editor에서 fix_rls_policies.sql을 실행해주세요.');
+                      }
+                      // Handle schema errors
+                      if (error.message && error.message.includes('column')) {
+                        const missingColumn = error.message.match(/column ['"]([^'"]+)['"]/)?.[1];
+                        if (missingColumn) {
+                          throw new Error(`데이터베이스에 '${missingColumn}' 컬럼이 없습니다. Supabase 대시보드에서 fix_all_schema.sql을 실행해주세요.`);
+                        }
+                      }
                       throw error;
                     }
                   } catch (err) {
                     error = err;
+                    console.error('Error saving record:', err);
+                    console.error('Form data attempted:', formData);
+                    console.error('Current session:', currentSession);
                   }
 
                   if (error) {
-                    console.error('Error saving record:', error);
-                    statusMsg.textContent = '저장 실패: ' + error.message;
+                    const errorMessage = error.message || '알 수 없는 오류가 발생했습니다.';
+                    statusMsg.textContent = '저장 실패: ' + errorMessage;
+                    statusMsg.classList.remove('text-green-500');
                     statusMsg.classList.add('text-red-500');
+                    statusMsg.style.display = 'block';
                   } else {
                     statusMsg.textContent = '저장되었습니다.';
                     statusMsg.classList.remove('text-red-500');
